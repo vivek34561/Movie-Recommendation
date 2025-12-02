@@ -76,6 +76,9 @@ def get_recommendations(session: requests.Session, movie_id: int, api_key: str, 
             "release_date": m.get("release_date") or det.get("release_date"),
             "vote_average": det.get("vote_average") or m.get("vote_average"),
             "poster_path": m.get("poster_path") or det.get("poster_path"),
+            "popularity": det.get("popularity") or m.get("popularity"),
+            "providers": None,
+            "videos": None,
         })
     return enriched
 
@@ -118,5 +121,42 @@ def recommend_top5(input_movie: dict, candidates: list[dict]) -> list[dict]:
             "poster_path": m.get("poster_path"),
             "genres": m.get("genres"),
             "overview": m.get("overview"),
+            "popularity": m.get("popularity"),
         })
     return top
+
+def fetch_genres(session: requests.Session, api_key: str, language: str | None = None) -> list[dict]:
+    params = {"language": language} if language else {}
+    data = tmdb_get(session, "/genre/movie/list", params=params, api_key=api_key)
+    return data.get("genres", [])
+
+def fetch_watch_providers(session: requests.Session, movie_id: int, api_key: str) -> dict:
+    data = tmdb_get(session, f"/movie/{movie_id}/watch/providers", api_key=api_key)
+    return data.get("results", {})
+
+def fetch_videos(session: requests.Session, movie_id: int, api_key: str, language: str | None = None) -> list[dict]:
+    params = {"language": language} if language else {}
+    data = tmdb_get(session, f"/movie/{movie_id}/videos", params=params, api_key=api_key)
+    return data.get("results", [])
+
+def hybrid_score(items: list[dict], alpha: float = 0.7, beta: float = 0.2, gamma: float = 0.1) -> list[dict]:
+    # Normalize vote_average (0-10) and popularity (min-max) then combine
+    votes = [float(i.get("vote_average") or 0.0) for i in items]
+    pops = [float(i.get("popularity") or 0.0) for i in items]
+    min_pop, max_pop = (min(pops) if pops else 0.0), (max(pops) if pops else 1.0)
+    def norm_pop(x: float) -> float:
+        if max_pop == min_pop:
+            return 0.0
+        return (x - min_pop) / (max_pop - min_pop)
+    out = []
+    for i, it in enumerate(items):
+        sim = float(it.get("similarity") or 0.0)
+        va = votes[i] / 10.0  # 0..1
+        pn = norm_pop(pops[i])
+        score = alpha * sim + beta * va + gamma * pn
+        o = dict(it)
+        o["hybrid_score"] = round(score, 4)
+        out.append(o)
+    # sort by hybrid score desc
+    out.sort(key=lambda x: x.get("hybrid_score"), reverse=True)
+    return out
