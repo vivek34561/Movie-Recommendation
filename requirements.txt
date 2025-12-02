@@ -1,0 +1,8 @@
+requests
+scikit-learn
+numpy
+pandas
+python-dotenv
+pytest
+requests-mock
+streamlit

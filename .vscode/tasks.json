@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install Python requirements",
+			"type": "shell",
+			"command": "$env:VIRTUAL_ENV=\"c:\\Users\\vivek gupta\\Desktop\\Movie Recommendation\\movie_env\"; $env:Path = \"c:\\Users\\vivek gupta\\Desktop\\Movie Recommendation\\movie_env\\Scripts;\" + $env:Path; pip install -r requirements.txt",
+			"problemMatcher": [
+				"$eslint - stylish"
+			],
+			"group": "build"
+		}
+	]
+}
