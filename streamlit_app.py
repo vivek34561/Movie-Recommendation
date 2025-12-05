@@ -10,7 +10,6 @@ from tmdb_recommender import (
     fetch_genres,
     hybrid_score,
     fetch_watch_providers,
-    fetch_videos,
 )
 
 st.set_page_config(page_title="TMDB Movie Recommender", page_icon="🎬", layout="wide")
@@ -55,11 +54,10 @@ def cached_candidates(api_key: str, movie_id: int):
     return get_recommendations(session, movie_id, api_key)
 
 @st.cache_data(show_spinner=False)
-def cached_providers_and_videos(api_key: str, movie_id: int, lang: str):
+def cached_providers(api_key: str, movie_id: int):
     session = get_session(api_key)
     providers = fetch_watch_providers(session, movie_id, api_key)
-    videos = fetch_videos(session, movie_id, api_key, language=lang)
-    return providers, videos
+    return providers
 
 if run and api_key and title.strip():
     try:
@@ -87,13 +85,13 @@ if run and api_key and title.strip():
                 with cols[i % 5]:
                     poster = build_poster_url(r.get("poster_path"))
                     if poster:
-                        st.image(poster, use_column_width=True)
+                        st.image(poster, use_container_width=True)
                     st.markdown(f"**{r.get('title')}**")
                     year = (r.get("release_date") or "")[0:4]
                     st.caption(f"{year} • ⭐ {r.get('vote_average')} • score {r.get('hybrid_score')}")
                     st.write((r.get("overview") or "")[:200])
-                    # Providers & Trailer
-                    providers, videos = cached_providers_and_videos(api_key, r.get("id"), lang)
+                    # Providers
+                    providers = cached_providers(api_key, r.get("id"))
                     prov = providers.get(region) if isinstance(providers, dict) else None
                     names = []
                     if prov and prov.get("flatrate"):
@@ -103,9 +101,6 @@ if run and api_key and title.strip():
                             continue
                     if names:
                         st.caption("Available on: " + ", ".join(names))
-                    yt = next((v for v in videos if v.get("site") == "YouTube" and v.get("type") in ("Trailer", "Teaser")), None)
-                    if yt and yt.get("key"):
-                        st.link_button("Watch Trailer", f"https://www.youtube.com/watch?v={yt.get('key')}", use_container_width=True)
                     st.link_button("TMDB", r.get("tmdb_url"), use_container_width=True)
     except Exception as e:
         st.error(f"Error: {e}")
